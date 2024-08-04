@@ -14,14 +14,13 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.ShapedRecipe;
+import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 public final class InvisibleItemFrames extends JavaPlugin {
     public static InvisibleItemFrames INSTANCE;
@@ -105,6 +104,7 @@ public final class InvisibleItemFrames extends JavaPlugin {
         ItemMeta meta = item.getItemMeta();
         assert meta != null;
         meta.setDisplayName(config.getString("name"));
+        meta.setEnchantmentGlintOverride(true);
         meta.setLore(config.getStringList("lore"));
         meta.getPersistentDataContainer().set(IS_INVISIBLE_KEY, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
@@ -120,21 +120,19 @@ public final class InvisibleItemFrames extends JavaPlugin {
 
         item = item.clone();
         item.setAmount(config.getInt("count"));
-        ShapedRecipe recipe = new ShapedRecipe(key, item);
-        List<String> shape = config.getStringList("shape");
-        recipe.shape(shape.toArray(new String[0]));
+        ShapelessRecipe recipe = new ShapelessRecipe(key, item);
 
-        ConfigurationSection ingredients = config.getConfigurationSection("ingredients");
+        List<String> ingredients = config.getStringList("ingredients");
         // If this is null, then the defaults above are incorrect.
-        assert ingredients != null;
-        for (Map.Entry<String, Object> entry : ingredients.getValues(false).entrySet()) {
-            Material material = Material.matchMaterial(entry.getValue().toString());
+        assert !ingredients.isEmpty();
+        for (String entry : ingredients) {
+            Material material = Material.matchMaterial(entry);
             if (material == null) {
                 getLogger()
-                        .severe("Failed to find material " + entry.getValue().toString() + ", recipe might not work.");
+                        .severe("Failed to find material " + entry + ", recipe might not work.");
                 continue;
             }
-            recipe.setIngredient(entry.getKey().charAt(0), material);
+            recipe.addIngredient(material);
         }
 
         try {
@@ -151,28 +149,6 @@ public final class InvisibleItemFrames extends JavaPlugin {
     public void loadConfig() {
         final FileConfiguration config = getConfig();
 
-        boolean migrateLegacy = false;
-        ConfigurationSection legacyItemSection = config.getConfigurationSection("item");
-        if (config.contains("item", true) && legacyItemSection != null) {
-            config.createSection("items.invisible_item_frame", legacyItemSection.getValues(true));
-            config.set("items.invisible_item_frame.enabled", true);
-            config.set("item", null);
-            getLogger().info("Found legacy item section");
-            migrateLegacy = true;
-        }
-        ConfigurationSection legacyRecipeSection = config.getConfigurationSection("recipe");
-        if (config.contains("recipe", true) && legacyRecipeSection != null) {
-            config.createSection("recipes.invisible_item_frame", legacyRecipeSection.getValues(true));
-            config.set("recipe", null);
-            getLogger().info("Found legacy recipe section");
-            migrateLegacy = true;
-        }
-
-        if (migrateLegacy) {
-            getLogger().info("Converting config to new format");
-            saveConfig();
-        }
-
         config.addDefault("items.invisible_item_frame.enabled", true);
         config.addDefault("items.invisible_item_frame.name", ChatColor.RESET + "Invisible Item Frame");
 
@@ -180,14 +156,12 @@ public final class InvisibleItemFrames extends JavaPlugin {
         config.addDefault("items.invisible_glow_item_frame.name", ChatColor.RESET + "Invisible Glow Item Frame");
 
         config.addDefault("recipes.invisible_item_frame.enabled", true);
-        config.addDefault("recipes.invisible_item_frame.count", 8);
-        config.addDefault("recipes.invisible_item_frame.shape", Arrays.asList("FFF", "F F", "FFF"));
-        config.addDefault("recipes.invisible_item_frame.ingredients.F", "minecraft:item_frame");
+        config.addDefault("recipes.invisible_item_frame.count", 1);
+        config.addDefault("recipes.invisible_item_frame.ingredients", Arrays.asList("minecraft:item_frame", "minecraft:glass_pane"));
 
         config.addDefault("recipes.invisible_glow_item_frame.enabled", true);
-        config.addDefault("recipes.invisible_glow_item_frame.count", 8);
-        config.addDefault("recipes.invisible_glow_item_frame.shape", Arrays.asList("FFF", "F F", "FFF"));
-        config.addDefault("recipes.invisible_glow_item_frame.ingredients.F", "minecraft:glow_item_frame");
+        config.addDefault("recipes.invisible_glow_item_frame.count", 1);
+        config.addDefault("recipes.invisible_glow_item_frame.ingredients", Arrays.asList("minecraft:glow_item_frame", "minecraft:glass_pane"));
 
         ConfigurationSection regularItem = config.getConfigurationSection("items.invisible_item_frame");
         assert regularItem != null;
